@@ -1,0 +1,6 @@
+{
+  "name": "Absensi Wajah Cerdas",
+  "description": "Aplikasi absensi sekolah dengan pengenalan wajah cerdas, web server pelaporan lokal via Ethernet, dan sinkronisasi realtime Firebase.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

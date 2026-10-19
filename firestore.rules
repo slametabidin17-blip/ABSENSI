@@ -1,0 +1,155 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128 &&
+             data.schoolName is string && data.schoolName.size() >= 2 && data.schoolName.size() <= 150 &&
+             data.adminName is string && data.adminName.size() >= 2 && data.adminName.size() <= 100 &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 150));
+    }
+
+    function isValidMember(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128 &&
+             data.name is string && data.name.size() >= 2 && data.name.size() <= 100 &&
+             data.role is string && (data.role == 'TEACHER' || data.role == 'STAFF' || data.role == 'STUDENT') &&
+             data.identifier is string && data.identifier.size() >= 2 && data.identifier.size() <= 50 &&
+             data.departmentOrClass is string && data.departmentOrClass.size() >= 1 && data.departmentOrClass.size() <= 100 &&
+             (!('faceFeatureData' in data) || (data.faceFeatureData is string && data.faceFeatureData.size() <= 20000)) &&
+             (!('photoUri' in data) || (data.photoUri is string && data.photoUri.size() <= 2000));
+    }
+
+    function isValidAttendance(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128 &&
+             data.memberId is string && data.memberId.size() > 0 && data.memberId.size() <= 128 &&
+             data.memberName is string && data.memberName.size() >= 2 && data.memberName.size() <= 100 &&
+             data.memberRole is string && (data.memberRole == 'TEACHER' || data.memberRole == 'STAFF' || data.memberRole == 'STUDENT') &&
+             data.departmentOrClass is string && data.departmentOrClass.size() >= 1 && data.departmentOrClass.size() <= 100 &&
+             data.date is string && data.date.size() >= 8 && data.date.size() <= 15 &&
+             data.time is string && data.time.size() >= 4 && data.time.size() <= 15 &&
+             data.type is string && (data.type == 'CHECK_IN' || data.type == 'CHECK_OUT') &&
+             data.status is string && (data.status == 'ON_TIME' || data.status == 'LATE' || data.status == 'EARLY_DEPARTURE' || data.status == 'EXCUSED' || data.status == 'SICK') &&
+             (!('verificationMethod' in data) || (data.verificationMethod is string && data.verificationMethod.size() <= 50)) &&
+             (!('confidence' in data) || data.confidence is number);
+    }
+
+    function isValidSchedule(data) {
+      return data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128 &&
+             data.schoolName is string && data.schoolName.size() >= 2 && data.schoolName.size() <= 150 &&
+             data.checkInStart is string && data.checkInStart.size() >= 3 && data.checkInStart.size() <= 10 &&
+             data.checkInDeadline is string && data.checkInDeadline.size() >= 3 && data.checkInDeadline.size() <= 10 &&
+             data.checkOutStart is string && data.checkOutStart.size() >= 3 && data.checkOutStart.size() <= 10;
+    }
+
+    match /users/{userId} {
+      allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+      allow create: if isSignedIn() &&
+                       request.auth.uid == userId &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'schoolName', 'adminName', 'createdAt']) &&
+                       incoming().keys().hasOnly(['userId', 'schoolName', 'adminName', 'email', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isSignedIn() &&
+                       request.auth.uid == userId &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['schoolName', 'adminName', 'email', 'updatedAt']);
+
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+
+      match /members/{memberId} {
+        allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll(['id', 'userId', 'name', 'role', 'identifier', 'departmentOrClass', 'createdAt']) &&
+                         incoming().keys().hasOnly(['id', 'userId', 'name', 'role', 'identifier', 'departmentOrClass', 'faceFeatureData', 'photoUri', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         isValidMember(incoming());
+
+        allow update: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidMember(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role', 'identifier', 'departmentOrClass', 'faceFeatureData', 'photoUri', 'updatedAt']);
+
+        allow delete: if isSignedIn() && request.auth.uid == userId;
+      }
+
+      match /attendances/{attendanceId} {
+        allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll(['id', 'userId', 'memberId', 'memberName', 'memberRole', 'departmentOrClass', 'date', 'time', 'type', 'status', 'createdAt']) &&
+                         incoming().keys().hasOnly(['id', 'userId', 'memberId', 'memberName', 'memberRole', 'departmentOrClass', 'date', 'time', 'type', 'status', 'verificationMethod', 'confidence', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         isValidAttendance(incoming());
+
+        allow update: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidAttendance(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'type', 'updatedAt']);
+
+        allow delete: if isSignedIn() && request.auth.uid == userId;
+      }
+
+      match /settings/{settingId} {
+        allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll(['userId', 'schoolName', 'checkInStart', 'checkInDeadline', 'checkOutStart', 'createdAt']) &&
+                         incoming().keys().hasOnly(['userId', 'schoolName', 'checkInStart', 'checkInDeadline', 'checkOutStart', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         isValidSchedule(incoming());
+
+        allow update: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidSchedule(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['schoolName', 'checkInStart', 'checkInDeadline', 'checkOutStart', 'updatedAt']);
+
+        allow delete: if isSignedIn() && request.auth.uid == userId;
+      }
+    }
+  }
+}

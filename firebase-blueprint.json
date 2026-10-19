@@ -1,0 +1,91 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Admin or school institution profile",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "schoolName": { "type": "string" },
+        "adminName": { "type": "string" },
+        "email": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "schoolName", "adminName", "createdAt"]
+    },
+    "Member": {
+      "title": "Member",
+      "description": "Teacher, staff, or student enrolled for face attendance",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["TEACHER", "STAFF", "STUDENT"] },
+        "identifier": { "type": "string" },
+        "departmentOrClass": { "type": "string" },
+        "faceFeatureData": { "type": "string" },
+        "photoUri": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "name", "role", "identifier", "departmentOrClass", "createdAt"]
+    },
+    "AttendanceRecord": {
+      "title": "AttendanceRecord",
+      "description": "Daily attendance record with face recognition verification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "memberId": { "type": "string" },
+        "memberName": { "type": "string" },
+        "memberRole": { "type": "string", "enum": ["TEACHER", "STAFF", "STUDENT"] },
+        "departmentOrClass": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "type": { "type": "string", "enum": ["CHECK_IN", "CHECK_OUT"] },
+        "status": { "type": "string", "enum": ["ON_TIME", "LATE", "EARLY_DEPARTURE", "EXCUSED", "SICK"] },
+        "verificationMethod": { "type": "string" },
+        "confidence": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "memberId", "memberName", "memberRole", "departmentOrClass", "date", "time", "type", "status", "createdAt"]
+    },
+    "SchoolSchedule": {
+      "title": "SchoolSchedule",
+      "description": "Configuration for school hours and attendance deadlines",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "schoolName": { "type": "string" },
+        "checkInStart": { "type": "string" },
+        "checkInDeadline": { "type": "string" },
+        "checkOutStart": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "schoolName", "checkInStart", "checkInDeadline", "checkOutStart", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Admin or school institution user profile"
+    },
+    "/users/{userId}/members/{memberId}": {
+      "schema": "Member",
+      "description": "Registered teachers, staff, and students"
+    },
+    "/users/{userId}/attendances/{attendanceId}": {
+      "schema": "AttendanceRecord",
+      "description": "Attendance history log records"
+    },
+    "/users/{userId}/settings/{settingId}": {
+      "schema": "SchoolSchedule",
+      "description": "School attendance schedule settings"
+    }
+  }
+}
